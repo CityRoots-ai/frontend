@@ -1,46 +1,156 @@
-# Getting Started with Create React App
+# CityRoots Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern React TypeScript frontend for the CityRoots AI urban planning assistant. Features a ChatGPT-like interface with integrated interactive mapping for park visualization and analysis.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- 🤖 **ChatGPT-like Interface** - Intuitive chat interface for natural language queries
+- 🗺️ **Interactive Maps** - Real-time park polygon rendering with Leaflet
+- 🎨 **Material-UI Design** - Professional, responsive UI components
+- 📱 **Responsive Layout** - Optimized for desktop and mobile devices
+- 🔄 **Real-time Updates** - Live map updates based on chat interactions
+- 🎯 **Park Selection** - Click-to-select parks with detailed information popups
 
-### `npm start`
+## Prerequisites
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- Node.js 16+
+- npm or yarn
+- Running CityRoots FastAPI backend
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## Quick Start
 
-### `npm test`
+### 1. Install Dependencies
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+cd cityroots-frontend
+npm install
+```
 
-### `npm run build`
+### 2. Environment Setup
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+The `.env` file is already configured with default values:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```env
+REACT_APP_API_URL=http://localhost:4000
+REACT_APP_MAP_DEFAULT_LAT=30.2672
+REACT_APP_MAP_DEFAULT_LNG=-97.7431
+REACT_APP_MAP_DEFAULT_ZOOM=11
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### 3. Start Development Server
 
-### `npm run eject`
+```bash
+npm start
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+The application will open at `http://localhost:3000`
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Usage
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Chat Interface
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+- Type natural language queries like:
+  - "Show parks in Austin"
+  - "Show parks in zipcode 20008"
+  - "What's the area of this park?"
+  - "What happens if this park is removed?"
 
-## Learn More
+### Map Interaction
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- **View Parks**: Parks appear as colored polygons on the map
+- **Select Parks**: Click on any park polygon to select it
+- **Park Details**: Selected parks show detailed information in popups
+- **Zoom & Pan**: Use mouse/touch to navigate the map
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Interface Controls
+
+- **Chat Toggle**: Floating action button to show/hide chat panel
+- **Responsive Design**: Layout adapts automatically to screen size
+- **Park Counter**: Live count of displayed parks
+- **Selection Indicator**: Visual feedback for selected parks
+
+## Project Structure
+
+```
+src/
+├── components/
+│   ├── MainLayout.tsx      # Main application layout
+│   ├── ChatInterface.tsx   # Chat component with message handling
+│   └── MapComponent.tsx    # Interactive map with park rendering
+├── services/
+│   └── api.ts             # Backend API integration
+├── App.tsx                # Main app component with theme
+└── index.css             # Global styles and map styling
+```
+
+## Key Components
+
+### MainLayout
+- Responsive grid layout with map and chat panels
+- Floating action button for chat toggle
+- Professional header with branding
+
+### ChatInterface
+- Message history with user/bot avatars
+- Real-time typing and loading indicators
+- Message data visualization (chips, metrics)
+- Auto-scroll to latest messages
+
+### MapComponent
+- Leaflet integration with OpenStreetMap tiles
+- Dynamic park polygon rendering
+- Interactive park selection and popups
+- Custom styling and hover effects
+
+## Styling & Theme
+
+- **Material-UI Theme**: Custom green/blue color palette
+- **Professional Design**: Clean, modern interface
+- **Responsive**: Mobile-first responsive design
+- **Accessibility**: WCAG compliant color contrasts
+
+## API Integration
+
+The frontend communicates with the FastAPI backend through:
+
+- `POST /api/agent` - Chat messages and responses
+- `POST /api/analyze` - Environmental impact analysis
+- `POST /api/ndvi` - NDVI calculations
+- `GET /health` - Backend health checks
+
+## Development
+
+### Available Scripts
+
+- `npm start` - Start development server
+- `npm run build` - Build for production
+- `npm test` - Run tests
+- `npm run eject` - Eject from Create React App
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REACT_APP_API_URL` | Backend API URL | `http://localhost:4000` |
+| `REACT_APP_MAP_DEFAULT_LAT` | Default map latitude | `30.2672` |
+| `REACT_APP_MAP_DEFAULT_LNG` | Default map longitude | `-97.7431` |
+| `REACT_APP_MAP_DEFAULT_ZOOM` | Default map zoom level | `11` |
+
+## Technologies
+
+- **React 18** with TypeScript
+- **Material-UI v6** for components and theming
+- **Leaflet** for interactive mapping
+- **Axios** for API communication
+- **Create React App** for build tooling
+
+## Browser Support
+
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
+
+## License
+
+MIT License

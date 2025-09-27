@@ -1,25 +1,49 @@
 import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { Box } from '@mui/material';
+import MainLayout from './components/MainLayout';
+
+const theme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#2E7D32',
+      light: '#4CAF50',
+      dark: '#1B5E20',
+    },
+    secondary: {
+      main: '#1976D2',
+      light: '#42A5F5',
+      dark: '#0D47A1',
+    },
+    background: {
+      default: '#F5F5F5',
+      paper: '#FFFFFF',
+    },
+  },
+  typography: {
+    fontFamily: '"Roboto", "Arial", sans-serif',
+    h4: {
+      fontWeight: 600,
+    },
+    h6: {
+      fontWeight: 500,
+    },
+  },
+  shape: {
+    borderRadius: 12,
+  },
+});
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ height: '100vh', overflow: 'hidden' }}>
+        <MainLayout />
+      </Box>
+    </ThemeProvider>
   );
 }
 
