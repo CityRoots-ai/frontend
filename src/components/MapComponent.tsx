@@ -30,7 +30,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   const theme = useTheme();
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [mapId] = useState(() => `map-${Math.random().toString(36).substr(2, 9)}`);
+  const [mapId] = useState(() => `map-${Math.random().toString(36).substring(2, 11)}`);
 
   useEffect(() => {
     // Use a small timeout to ensure DOM is fully ready
@@ -64,7 +64,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
           mapInstanceRef.current = L.map(mapRef.current, {
             center: [lat, lng],
             zoom: 11,
-            zoomControl: true,
+            zoomControl: false,
           });
         } catch (error) {
           console.error('Error initializing map:', error);
@@ -89,24 +89,6 @@ const MapComponent: React.FC<MapComponentProps> = ({
         .bindPopup('Your Location')
         .openPopup();
 
-      // Custom control for map info
-      const InfoControl = L.Control.extend({
-        onAdd: function() {
-          const div = L.DomUtil.create('div', 'info-control');
-          div.style.background = 'rgba(255,255,255,0.9)';
-          div.style.padding = '10px';
-          div.style.borderRadius = '8px';
-          div.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
-          div.style.fontFamily = 'Roboto, Arial, sans-serif';
-          div.style.fontSize = '12px';
-          div.innerHTML = '<strong>CityRoots Map</strong><br/>Click on parks to select them';
-          return div;
-        },
-        onRemove: function() {}
-      });
-
-      const infoControl = new InfoControl({ position: 'topright' });
-      infoControl.addTo(mapInstanceRef.current);
     };
 
     // Try to get user's current location
@@ -340,19 +322,6 @@ const MapComponent: React.FC<MapComponentProps> = ({
             sx={{ fontWeight: 500 }}
           />
         )}
-        {userLocation && (
-          <Chip
-            icon={<LocationOnIcon />}
-            label="Your Location"
-            variant="outlined"
-            sx={{
-              bgcolor: 'rgba(33, 150, 243, 0.1)',
-              borderColor: theme.palette.info.main,
-              color: theme.palette.info.main,
-              fontWeight: 500,
-            }}
-          />
-        )}
       </Box>
 
       <div
@@ -399,17 +368,20 @@ const MapComponent: React.FC<MapComponentProps> = ({
             transform: 'translate(-50%, -50%)',
             textAlign: 'center',
             zIndex: 1000,
-            bgcolor: 'rgba(255,255,255,0.95)',
-            p: 3,
-            borderRadius: 2,
-            boxShadow: 3,
+            bgcolor: 'rgba(15, 15, 35, 0.95)',
+            color: 'white',
+            p: 4,
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(99, 102, 241, 0.3)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(10px)',
           }}
         >
-          <NatureIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
-          <Typography variant="h6" color="primary" gutterBottom>
+          <NatureIcon sx={{ fontSize: 48, color: '#6366F1', mb: 2 }} />
+          <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }} gutterBottom>
             Welcome to CityRoots
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
             Search for parks using the chat interface
           </Typography>
         </Box>

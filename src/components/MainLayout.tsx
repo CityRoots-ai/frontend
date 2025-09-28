@@ -23,16 +23,17 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', m: 0, p: 0 }}>
       <AppBar
         position="static"
         elevation={0}
         sx={{
-          background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
-          borderBottom: '1px solid rgba(255,255,255,0.12)'
+          background: 'linear-gradient(135deg, #6366F1 0%, #8B5FFF 100%)',
+          borderBottom: '1px solid rgba(255,255,255,0.12)',
+          width: '100%'
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ width: '100%', m: 0, p: 2 }}>
           <MapIcon sx={{ mr: 2, fontSize: 28 }} />
           <Typography
             variant="h6"
@@ -57,70 +58,55 @@ const MainLayout: React.FC = () => {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth={false} sx={{ flex: 1, p: 0, height: 'calc(100vh - 64px)' }}>
-        <Box sx={{ display: 'flex', height: '100%' }}>
+      <Box sx={{ flex: 1, display: 'flex', height: 'calc(100vh - 64px)', width: '100%', m: 0, p: 0 }}>
+        <Box
+          sx={{
+            width: showChat ? '50%' : '100%',
+            height: '100%',
+            transition: 'width 0.3s ease-in-out',
+          }}
+        >
+          <MapComponent
+            parkData={parkData}
+            selectedParkId={selectedParkId}
+            onParkSelect={setSelectedParkId}
+          />
+        </Box>
+
+        {showChat && (
           <Box
             sx={{
-              width: showChat ? '40%' : '100%',
+              width: '50%',
               height: '100%',
-              transition: 'width 0.3s ease-in-out',
+              borderLeft: '1px solid rgba(255,255,255,0.1)',
             }}
           >
-            <Paper
-              elevation={3}
-              sx={{
-                height: '100%',
-                borderRadius: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                background: '#FAFAFA'
-              }}
-            >
-              <MapComponent
-                parkData={parkData}
-                selectedParkId={selectedParkId}
-                onParkSelect={setSelectedParkId}
-              />
-            </Paper>
+            <ChatInterface
+              onParkDataUpdate={handleParkDataUpdate}
+              selectedParkId={selectedParkId}
+            />
           </Box>
-
-          {showChat && (
-            <Box
-              sx={{
-                width: '60%',
-                height: '100%',
-              }}
-            >
-              <Paper
-                elevation={3}
-                sx={{
-                  height: '100%',
-                  borderRadius: 0,
-                  borderLeft: '1px solid #E0E0E0'
-                }}
-              >
-                <ChatInterface
-                  onParkDataUpdate={handleParkDataUpdate}
-                  selectedParkId={selectedParkId}
-                />
-              </Paper>
-            </Box>
-          )}
-        </Box>
-      </Container>
+        )}
+      </Box>
 
       <Fab
-        color="primary"
         onClick={() => setShowChat(!showChat)}
         sx={{
           position: 'fixed',
           bottom: 24,
           right: 24,
           zIndex: 1000,
-          background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+          width: 56,
+          height: 56,
+          bgcolor: '#6366F1',
+          color: 'white',
+          boxShadow: '0 4px 16px rgba(99, 102, 241, 0.3)',
           '&:hover': {
-            background: 'linear-gradient(135deg, #1B5E20 0%, #388E3C 100%)',
-          }
+            bgcolor: '#4F46E5',
+            transform: 'scale(1.1)',
+            boxShadow: '0 6px 20px rgba(99, 102, 241, 0.4)',
+          },
+          transition: 'all 0.3s ease-in-out',
         }}
       >
         <ChatIcon />

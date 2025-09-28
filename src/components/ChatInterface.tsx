@@ -4,14 +4,11 @@ import {
   TextField,
   IconButton,
   Typography,
-  Paper,
   List,
   ListItem,
   Avatar,
   Chip,
   CircularProgress,
-  Divider,
-  useTheme,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -46,9 +43,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId] = useState(() => Math.random().toString(36).substr(2, 9));
+  const [sessionId] = useState(() => Math.random().toString(36).substring(2, 11));
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const theme = useTheme();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -126,9 +122,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <Chip
           icon={<LocationOnIcon />}
           label={`${data.featureCollection.features.length} parks found`}
-          variant="outlined"
+          variant="filled"
           size="small"
-          sx={{ mt: 1 }}
+          sx={{
+            mt: 1.5,
+            bgcolor: 'rgba(255,255,255,0.2)',
+            color: 'white',
+            '& .MuiChip-icon': { color: 'white' }
+          }}
         />
       );
     }
@@ -137,10 +138,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       return (
         <Chip
           label={`NDVI: ${data.ndvi.toFixed(3)}`}
-          variant="outlined"
+          variant="filled"
           size="small"
-          sx={{ mt: 1 }}
-          color="success"
+          sx={{
+            mt: 1.5,
+            bgcolor: 'rgba(76,175,80,0.9)',
+            color: 'white'
+          }}
         />
       );
     }
@@ -149,10 +153,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       return (
         <Chip
           label={`Area: ${data.area.toFixed(2)} ${data.unit}`}
-          variant="outlined"
+          variant="filled"
           size="small"
-          sx={{ mt: 1 }}
-          color="info"
+          sx={{
+            mt: 1.5,
+            bgcolor: 'rgba(33,150,243,0.9)',
+            color: 'white'
+          }}
         />
       );
     }
@@ -161,79 +168,67 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box
-        sx={{
-          p: 3,
-          background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-          borderBottom: '1px solid #E0E0E0'
-        }}
-      >
-        <Typography variant="h6" sx={{ fontWeight: 600, color: '#2E7D32' }}>
-          Chat Assistant
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Ask me about parks and urban planning
-        </Typography>
-      </Box>
-
-      <Box sx={{ flex: 1, overflow: 'hidden' }}>
-        <List sx={{ height: '100%', overflow: 'auto', py: 1 }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#1A1B3A' }}>
+      <Box sx={{ flex: 1, overflow: 'hidden', bgcolor: '#1A1B3A' }}>
+        <List sx={{ height: '100%', overflow: 'auto', py: 2, px: 1 }}>
           {messages.map((message) => (
             <ListItem
               key={message.id}
               sx={{
                 flexDirection: 'column',
                 alignItems: message.isUser ? 'flex-end' : 'flex-start',
-                py: 1,
+                py: 1.5,
+                px: 0,
               }}
             >
               <Box
                 sx={{
                   display: 'flex',
                   alignItems: 'flex-start',
-                  gap: 1,
-                  maxWidth: '85%',
+                  gap: 2,
+                  maxWidth: '80%',
+                  width: '100%',
                   flexDirection: message.isUser ? 'row-reverse' : 'row',
                 }}
               >
                 <Avatar
                   sx={{
-                    width: 32,
-                    height: 32,
-                    bgcolor: message.isUser ? theme.palette.secondary.main : theme.palette.primary.main,
+                    width: 36,
+                    height: 36,
+                    bgcolor: message.isUser ? '#6366F1' : '#2563EB',
+                    flexShrink: 0,
                   }}
                 >
                   {message.isUser ? <PersonIcon fontSize="small" /> : <SmartToyIcon fontSize="small" />}
                 </Avatar>
 
-                <Paper
-                  elevation={1}
+                <Box
                   sx={{
-                    p: 2,
+                    bgcolor: message.isUser ? '#6366F1' : '#2563EB',
+                    color: 'white',
+                    p: 2.5,
+                    borderRadius: message.isUser ? '20px 20px 6px 20px' : '20px 20px 20px 6px',
                     maxWidth: '100%',
-                    bgcolor: message.isUser
-                      ? theme.palette.secondary.light
-                      : theme.palette.grey[100],
-                    color: message.isUser ? 'white' : 'text.primary',
-                    borderRadius: message.isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                    boxShadow: message.isUser ? '0 4px 14px rgba(99, 102, 241, 0.25)' : '0 4px 14px rgba(37, 99, 235, 0.25)',
+                    position: 'relative',
                   }}
                 >
-                  <Typography variant="body1" sx={{ lineHeight: 1.4 }}>
+                  <Typography variant="body1" sx={{ lineHeight: 1.5, fontSize: '14px' }}>
                     {formatMessageText(message.text)}
                   </Typography>
                   {renderMessageData(message.data)}
-                </Paper>
+                </Box>
               </Box>
 
               <Typography
                 variant="caption"
-                color="text.secondary"
                 sx={{
                   mt: 0.5,
+                  color: 'rgba(255,255,255,0.6)',
+                  fontSize: '11px',
                   alignSelf: message.isUser ? 'flex-end' : 'flex-start',
-                  mr: message.isUser ? 5 : 0,
-                  ml: message.isUser ? 0 : 5,
+                  mr: message.isUser ? 6 : 0,
+                  ml: message.isUser ? 0 : 6,
                 }}
               >
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -242,8 +237,27 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           ))}
 
           {isLoading && (
-            <ListItem sx={{ justifyContent: 'center' }}>
-              <CircularProgress size={24} />
+            <ListItem sx={{ justifyContent: 'flex-start', py: 1.5, px: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, ml: 1 }}>
+                <Avatar sx={{ width: 36, height: 36, bgcolor: '#2563EB' }}>
+                  <SmartToyIcon fontSize="small" />
+                </Avatar>
+                <Box sx={{
+                  bgcolor: '#2563EB',
+                  color: 'white',
+                  p: 2,
+                  borderRadius: '20px 20px 20px 6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.25)'
+                }}>
+                  <CircularProgress size={16} sx={{ color: 'white' }} />
+                  <Typography variant="body2" sx={{ fontSize: '14px' }}>
+                    Thinking...
+                  </Typography>
+                </Box>
+              </Box>
             </ListItem>
           )}
 
@@ -251,21 +265,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </List>
       </Box>
 
-      <Divider />
-
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: 3, bgcolor: '#1A1B3A', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
         {selectedParkId && (
-          <Box sx={{ mb: 2, p: 1.5, bgcolor: 'success.light', borderRadius: 2, border: '1px solid', borderColor: 'success.main' }}>
-            <Typography variant="body2" sx={{ color: 'success.contrastText', fontWeight: 500 }}>
+          <Box sx={{
+            mb: 2.5,
+            p: 2,
+            bgcolor: 'rgba(99, 102, 241, 0.1)',
+            borderRadius: '12px',
+            border: '1px solid rgba(99, 102, 241, 0.2)',
+            borderLeft: '4px solid #6366F1'
+          }}>
+            <Typography variant="body2" sx={{ color: '#6366F1', fontWeight: 600, mb: 0.5 }}>
               🎯 Park Selected: {selectedParkId}
             </Typography>
-            <Typography variant="caption" sx={{ color: 'success.contrastText', opacity: 0.9 }}>
-              You can now ask: "What's the area?", "What's the NDVI?", "What happens if removed?"
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>
+              Ask: "What's the area?", "What's the NDVI?", "What happens if removed?"
             </Typography>
           </Box>
         )}
 
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', mr: 6 }}>
           <TextField
             fullWidth
             multiline
@@ -282,25 +301,56 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             disabled={isLoading}
             sx={{
               '& .MuiOutlinedInput-root': {
-                borderRadius: 3,
-                bgcolor: 'background.paper',
+                borderRadius: '24px',
+                bgcolor: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'white',
+                fontSize: '14px',
+                '&:hover': {
+                  borderColor: '#6366F1',
+                  bgcolor: 'rgba(255,255,255,0.08)',
+                },
+                '&.Mui-focused': {
+                  borderColor: '#6366F1',
+                  bgcolor: 'rgba(255,255,255,0.08)',
+                  boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)',
+                },
+                '& fieldset': {
+                  border: 'none',
+                }
+              },
+              '& .MuiInputBase-input': {
+                fontSize: '14px',
+                color: 'white',
+                '&::placeholder': {
+                  color: 'rgba(255,255,255,0.5)',
+                  opacity: 1,
+                }
               }
             }}
           />
           <IconButton
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isLoading}
-            color="primary"
             sx={{
-              bgcolor: 'primary.main',
+              bgcolor: '#6366F1',
               color: 'white',
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              boxShadow: '0 4px 14px rgba(99, 102, 241, 0.25)',
               '&:hover': {
-                bgcolor: 'primary.dark',
+                bgcolor: '#4F46E5',
+                transform: 'scale(1.05)',
+                boxShadow: '0 6px 20px rgba(99, 102, 241, 0.35)',
               },
               '&:disabled': {
-                bgcolor: 'grey.300',
-                color: 'grey.500',
-              }
+                bgcolor: 'rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.3)',
+                boxShadow: 'none',
+                transform: 'none',
+              },
+              transition: 'all 0.2s ease-in-out',
             }}
           >
             <SendIcon />
