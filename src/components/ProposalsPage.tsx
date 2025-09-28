@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -11,6 +11,9 @@ import {
   Chip,
   useTheme,
   Modal,
+  CircularProgress,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 import {
   HowToVote as VoteIcon,
@@ -18,59 +21,159 @@ import {
   ThumbDown as ThumbDownIcon,
   ArrowBack as BackIcon,
   Close as CloseIcon,
+  CheckCircle as CheckIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import ProfileDropdown from './ProfileDropdown';
-
-interface Proposal {
-  id: string;
-  title: string;
-  description: string;
-  yesVotes: number;
-  noVotes: number;
-}
+import { Proposal, getProposals, getProposalDetails, formatProposalEndDate, isProposalActive, checkUserVote, switchToSepolia } from '../utils/contracts';
+import { useVoting } from '../hooks/useVoting';
 
 const ProposalsPage: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { user, primaryWallet } = useDynamicContext();
+  const { isVoting, error, success, transactionHash, submitVote, resetVotingState } = useVoting();
+
   const [voteModalOpen, setVoteModalOpen] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
-  const [userVotes, setUserVotes] = useState<Record<string, 'yes' | 'no'>>({});
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [userVotes, setUserVotes] = useState<Record<string, { hasVoted: boolean; vote?: boolean }>>({});
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [switchingNetwork, setSwitchingNetwork] = useState(false);
 
-  const mockProposals: Proposal[] = [
-    {
-      id: '1',
-      title: 'Convert Parking Lot to Community Garden',
-      description: 'Transform unused parking lot into community garden space.',
-      yesVotes: 156,
-      noVotes: 23,
-    },
-    {
-      id: '2',
-      title: 'Remove Riverside Park for Development',
-      description: 'Replace Riverside Park with mixed-use complex.',
-      yesVotes: 89,
-      noVotes: 267,
-    },
-    {
-      id: '3',
-      title: 'Install Solar Panels in Central Park',
-      description: 'Add solar panel canopies over picnic areas.',
-      yesVotes: 234,
-      noVotes: 45,
-    },
-  ];
+  // Load proposals from blockchain (with debouncing to prevent loops)
+  useEffect(() => {
+    let isMounted = true;
 
-  const handleVoteClick = (proposal: Proposal) => {
-    setSelectedProposal(proposal);
-    setVoteModalOpen(true);
+    const loadProposals = async () => {
+      try {
+        setLoading(true);
+        setErrorMessage(null);
+        console.log('Loading proposals...');
+
+        const proposalsData = await getProposals();
+
+        if (isMounted) {
+          setProposals(proposalsData);
+          console.log('Proposals loaded:', proposalsData.length);
+        }
+      } catch (error: any) {
+        console.error('Error loading proposals:', error);
+        if (isMounted) {
+          setErrorMessage(error.message || 'Failed to load proposals');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Debounce the initial load to prevent rapid succession calls
+    const timeoutId = setTimeout(loadProposals, 200);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []); // Load proposals only once on mount
+
+  // Separate effect to check user votes when wallet connects (simplified to avoid loops)
+  useEffect(() => {
+    // Skip user vote checking since it's causing loops and the contract functions don't work properly
+    // User votes will be validated during the actual transaction
+    console.log('Skipping user vote checks to prevent API loops');
+  }, [user?.id, primaryWallet?.address]); // Minimal dependencies
+
+  const handleVoteClick = async (proposal: Proposal) => {
+    try {
+      // Fetch detailed proposal data with all the content
+      const detailedProposal = await getProposalDetails(proposal.id);
+      setSelectedProposal(detailedProposal);
+      setVoteModalOpen(true);
+      resetVotingState();
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Failed to load proposal details');
+    }
   };
 
-  const handleVote = (vote: 'yes' | 'no') => {
-    if (selectedProposal) {
-      setUserVotes(prev => ({ ...prev, [selectedProposal.id]: vote }));
-      setVoteModalOpen(false);
-      setSelectedProposal(null);
+  const handleVote = async (voteChoice: boolean) => {
+    if (!selectedProposal) return;
+
+    if (!user || !primaryWallet) {
+      setErrorMessage('Please connect your wallet to vote');
+      return;
+    }
+
+    // Note: Vote validation is handled by the smart contract during transaction
+    // Local vote checking has been disabled to prevent API loops
+
+    try {
+      console.log(`Submitting vote for proposal ${selectedProposal.id}: ${voteChoice ? 'YES' : 'NO'}`);
+
+      const result = await submitVote(selectedProposal.id, voteChoice);
+
+      if (result.success) {
+        console.log('Vote successful!', result);
+
+        // Update local state immediately to prevent double voting
+        setUserVotes(prev => ({
+          ...prev,
+          [selectedProposal.id]: { hasVoted: true, vote: voteChoice }
+        }));
+
+        // Update proposal vote counts locally
+        setProposals(prev => prev.map(p => {
+          if (p.id === selectedProposal.id) {
+            return {
+              ...p,
+              yesVotes: voteChoice ? p.yesVotes + 1 : p.yesVotes,
+              noVotes: !voteChoice ? p.noVotes + 1 : p.noVotes
+            };
+          }
+          return p;
+        }));
+
+        setShowSuccessMessage(true);
+
+        // Close modal after showing success message
+        setTimeout(() => {
+          setVoteModalOpen(false);
+          setSelectedProposal(null);
+        }, 3000);
+      } else {
+        console.error('Vote failed:', result.error);
+        setErrorMessage(result.error || 'Vote failed');
+      }
+    } catch (error: any) {
+      console.error('Vote submission error:', error);
+      setErrorMessage(error.message || 'An unexpected error occurred');
+    }
+  };
+
+  const handleNetworkSwitch = async () => {
+    if (!primaryWallet) {
+      setErrorMessage('Please connect your wallet first');
+      return;
+    }
+
+    setSwitchingNetwork(true);
+    try {
+      const result = await switchToSepolia(primaryWallet);
+      if (result.success) {
+        setErrorMessage(null);
+        // Reload proposals after network switch
+        window.location.reload();
+      } else {
+        setErrorMessage(result.error || 'Failed to switch to Sepolia testnet');
+      }
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Failed to switch networks');
+    } finally {
+      setSwitchingNetwork(false);
     }
   };
 
@@ -171,109 +274,216 @@ const ProposalsPage: React.FC = () => {
           Vote on urban planning proposals
         </Typography>
 
+        {/* Loading State */}
+        {loading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <CircularProgress sx={{ color: 'white' }} />
+            <Typography sx={{ color: 'white', ml: 2 }}>Loading proposals...</Typography>
+          </Box>
+        )}
+
+        {/* Error State */}
+        {errorMessage && (
+          <Alert
+            severity="error"
+            sx={{ mb: 4, bgcolor: 'rgba(244, 67, 54, 0.1)', color: 'white' }}
+            action={
+              errorMessage.includes('Sepolia') ? (
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={handleNetworkSwitch}
+                  disabled={switchingNetwork}
+                  sx={{ minWidth: 'auto', color: 'white' }}
+                >
+                  {switchingNetwork ? 'Switching...' : 'Switch to Sepolia'}
+                </Button>
+              ) : null
+            }
+          >
+            {errorMessage}
+          </Alert>
+        )}
+
+        {/* No Proposals State */}
+        {!loading && proposals.length === 0 && !errorMessage && (
+          <Box sx={{ textAlign: 'center', mt: 4 }}>
+            <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
+              No active proposals found
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+              Check back later for new community proposals
+            </Typography>
+          </Box>
+        )}
+
         {/* Proposals List */}
-        <Grid container spacing={3}>
-          {mockProposals.map((proposal) => (
-            <Grid size={{ xs: 12 }} key={proposal.id}>
-              <Card
-                sx={{
-                  bgcolor: 'rgba(255,255,255,0.05)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 3,
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    bgcolor: 'rgba(255,255,255,0.08)',
-                    transform: 'translateY(-2px)',
-                  },
-                }}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      fontWeight: 600,
-                      mb: 1,
-                      color: 'white',
-                      fontSize: '1.1rem'
-                    }}
-                  >
-                    {proposal.title}
-                  </Typography>
-
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: 'rgba(255,255,255,0.7)',
-                      mb: 3,
-                      lineHeight: 1.5
-                    }}
-                  >
-                    {proposal.description}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Chip
-                        label={`${proposal.yesVotes} Yes`}
-                        size="small"
+        {!loading && proposals.length > 0 && (
+          <Grid container spacing={3}>
+            {proposals.map((proposal) => (
+              <Grid size={{ xs: 12 }} key={proposal.id}>
+                <Card
+                  sx={{
+                    bgcolor: 'rgba(255,255,255,0.05)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 3,
+                    transition: 'all 0.1s ease',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,0.08)',
+                      transform: 'translateY(-1px)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                      <Typography
+                        variant="h6"
                         sx={{
-                          bgcolor: 'rgba(76, 175, 80, 0.2)',
-                          color: '#4CAF50',
-                          fontSize: '0.75rem'
+                          fontWeight: 600,
+                          color: 'white',
+                          fontSize: '1.1rem',
+                          flex: 1
                         }}
-                      />
-                      <Chip
-                        label={`${proposal.noVotes} No`}
-                        size="small"
-                        sx={{
-                          bgcolor: 'rgba(244, 67, 54, 0.2)',
-                          color: '#F44336',
-                          fontSize: '0.75rem'
-                        }}
-                      />
+                      >
+                        {proposal.title}
+                      </Typography>
+                      {!isProposalActive(proposal.endDate) && (
+                        <Chip
+                          label="Closed"
+                          size="small"
+                          sx={{
+                            bgcolor: 'rgba(158, 158, 158, 0.2)',
+                            color: '#9E9E9E',
+                            fontSize: '0.7rem'
+                          }}
+                        />
+                      )}
                     </Box>
 
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={() => handleVoteClick(proposal)}
+                    <Typography
+                      variant="body2"
                       sx={{
-                        bgcolor: theme.palette.primary.main,
-                        '&:hover': {
-                          bgcolor: theme.palette.primary.dark,
-                        },
-                        borderRadius: 2,
-                        px: 2,
+                        color: 'rgba(255,255,255,0.7)',
+                        mb: 2,
+                        lineHeight: 1.5
+                      }}
+                    >
+                      {proposal.description.length > 150
+                        ? `${proposal.description.substring(0, 150)}...`
+                        : proposal.description}
+                    </Typography>
+
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'rgba(255,255,255,0.5)',
+                        mb: 3,
                         fontSize: '0.8rem'
                       }}
                     >
-                      Vote Now
-                    </Button>
-                  </Box>
+                      Ends: {formatProposalEndDate(proposal.endDate)}
+                    </Typography>
 
-                  {userVotes[proposal.id] && (
-                    <Box sx={{ mt: 2, p: 1.5, bgcolor: 'rgba(76, 175, 80, 0.1)', borderRadius: 2, border: '1px solid rgba(76, 175, 80, 0.3)' }}>
-                      <Typography variant="body2" sx={{ color: '#4CAF50', fontWeight: 500, fontSize: '0.8rem' }}>
-                        ✓ You voted "{userVotes[proposal.id].toUpperCase()}"
-                      </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Chip
+                          label={`${proposal.yesVotes} Yes`}
+                          size="small"
+                          sx={{
+                            bgcolor: 'rgba(76, 175, 80, 0.2)',
+                            color: '#4CAF50',
+                            fontSize: '0.75rem'
+                          }}
+                        />
+                        <Chip
+                          label={`${proposal.noVotes} No`}
+                          size="small"
+                          sx={{
+                            bgcolor: 'rgba(244, 67, 54, 0.2)',
+                            color: '#F44336',
+                            fontSize: '0.75rem'
+                          }}
+                        />
+                      </Box>
+
+                      {!user ? (
+                        <Chip
+                          label="Connect Wallet to Vote"
+                          size="small"
+                          sx={{
+                            bgcolor: 'rgba(255,255,255,0.1)',
+                            color: 'rgba(255,255,255,0.7)',
+                            fontSize: '0.75rem'
+                          }}
+                        />
+                      ) : !isProposalActive(proposal.endDate) ? (
+                        <Chip
+                          label="Voting Closed"
+                          size="small"
+                          sx={{
+                            bgcolor: 'rgba(158, 158, 158, 0.2)',
+                            color: '#9E9E9E',
+                            fontSize: '0.75rem'
+                          }}
+                        />
+                      ) : (
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={() => handleVoteClick(proposal)}
+                          disabled={userVotes[proposal.id]?.hasVoted}
+                          sx={{
+                            bgcolor: userVotes[proposal.id]?.hasVoted
+                              ? 'rgba(76, 175, 80, 0.3)'
+                              : theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: userVotes[proposal.id]?.hasVoted
+                                ? 'rgba(76, 175, 80, 0.3)'
+                                : theme.palette.primary.dark,
+                            },
+                            borderRadius: 2,
+                            px: 2,
+                            fontSize: '0.8rem'
+                          }}
+                        >
+                          {userVotes[proposal.id]?.hasVoted ? 'Voted' : 'Vote Now'}
+                        </Button>
+                      )}
                     </Box>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+
+                    {userVotes[proposal.id]?.hasVoted && (
+                      <Box sx={{ mt: 2, p: 1.5, bgcolor: 'rgba(76, 175, 80, 0.1)', borderRadius: 2, border: '1px solid rgba(76, 175, 80, 0.3)' }}>
+                        <Typography variant="body2" sx={{ color: '#4CAF50', fontWeight: 500, fontSize: '0.8rem' }}>
+                          ✓ You voted "{userVotes[proposal.id].vote ? 'YES' : 'NO'}"
+                        </Typography>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
 
         {/* Vote Modal */}
         <Modal
           open={voteModalOpen}
-          onClose={() => setVoteModalOpen(false)}
+          onClose={() => {
+            if (!isVoting) { // Only allow closing if not voting
+              setVoteModalOpen(false);
+              resetVotingState();
+            }
+          }}
           sx={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            zIndex: 999, // Lower z-index so wallet popups appear above
           }}
+          disableEnforceFocus={true} // Allow focus to go to wallet popups
+          disableAutoFocus={true}
+          disableRestoreFocus={true} // Prevent focus restoration
         >
           <Box
             sx={{
@@ -290,16 +500,45 @@ const ProposalsPage: React.FC = () => {
             }}
           >
             <IconButton
-              onClick={() => setVoteModalOpen(false)}
+              onClick={() => {
+                if (!isVoting) { // Only allow closing if not voting
+                  setVoteModalOpen(false);
+                  resetVotingState();
+                }
+              }}
+              disabled={isVoting}
               sx={{
                 position: 'absolute',
                 top: 8,
                 right: 8,
-                color: 'rgba(255,255,255,0.7)'
+                color: isVoting ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.7)'
               }}
             >
               <CloseIcon />
             </IconButton>
+
+            {success && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, p: 2, bgcolor: 'rgba(76, 175, 80, 0.1)', borderRadius: 2 }}>
+                <CheckIcon sx={{ color: '#4CAF50', mr: 1 }} />
+                <Typography variant="body2" sx={{ color: '#4CAF50', fontWeight: 500 }}>
+                  Vote submitted successfully!
+                  {transactionHash && (
+                    <>
+                      <br />
+                      <Typography component="span" variant="caption" sx={{ color: 'rgba(76, 175, 80, 0.8)' }}>
+                        TX: {transactionHash.substring(0, 10)}...{transactionHash.substring(transactionHash.length - 8)}
+                      </Typography>
+                    </>
+                  )}
+                </Typography>
+              </Box>
+            )}
+
+            {error && (
+              <Alert severity="error" sx={{ mb: 3, bgcolor: 'rgba(244, 67, 54, 0.1)', color: 'white' }}>
+                {error}
+              </Alert>
+            )}
 
             <Typography variant="h6" sx={{ color: 'white', mb: 2, fontWeight: 600 }}>
               Vote on Proposal
@@ -331,116 +570,49 @@ const ProposalsPage: React.FC = () => {
                 },
               }}
             >
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 3, lineHeight: 1.6 }}>
-                <strong>Proposal Details:</strong>
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, lineHeight: 1.6 }}>
-                {selectedProposal?.description}
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 2, lineHeight: 1.6 }}>
-                <strong>Impact Assessment:</strong>
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, lineHeight: 1.6 }}>
-                This proposal has been thoroughly reviewed by the urban planning committee and community stakeholders. The implementation would affect approximately 2,500 residents in the surrounding area and is expected to have significant environmental and social implications.
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 2, lineHeight: 1.6 }}>
-                <strong>Environmental Benefits:</strong>
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, lineHeight: 1.6 }}>
-                • Reduction in carbon footprint by an estimated 15%<br/>
-                • Improved air quality in the immediate vicinity<br/>
-                • Enhanced biodiversity through native plant integration<br/>
-                • Sustainable water management systems<br/>
-                • Renewable energy integration where applicable
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 2, lineHeight: 1.6 }}>
-                <strong>Community Benefits:</strong>
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, lineHeight: 1.6 }}>
-                • Increased recreational spaces for families<br/>
-                • Enhanced property values in the neighborhood<br/>
-                • Improved walkability and accessibility<br/>
-                • New job opportunities during construction and maintenance<br/>
-                • Educational opportunities for local schools
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 2, lineHeight: 1.6 }}>
-                <strong>Implementation Timeline:</strong>
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, lineHeight: 1.6 }}>
-                Phase 1 (Months 1-3): Community consultation and design finalization<br/>
-                Phase 2 (Months 4-8): Permit acquisition and contractor selection<br/>
-                Phase 3 (Months 9-18): Construction and implementation<br/>
-                Phase 4 (Months 19-24): Monitoring and adjustment period
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 2, lineHeight: 1.6 }}>
-                <strong>Budget Breakdown:</strong>
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, lineHeight: 1.6 }}>
-                Total estimated cost: $2.8 million<br/>
-                • Design and planning: $350,000<br/>
-                • Materials and construction: $1,900,000<br/>
-                • Environmental assessments: $150,000<br/>
-                • Community engagement: $75,000<br/>
-                • Contingency fund: $325,000
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 2, lineHeight: 1.6 }}>
-                <strong>Funding Sources:</strong>
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, lineHeight: 1.6 }}>
-                • Municipal budget allocation: 45%<br/>
-                • State environmental grants: 30%<br/>
-                • Federal infrastructure funding: 20%<br/>
-                • Community fundraising: 5%
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 2, lineHeight: 1.6 }}>
-                <strong>Considerations:</strong>
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, lineHeight: 1.6 }}>
-                Please consider the long-term impact on our community. This proposal represents a significant investment in our neighborhood's future and will affect generations to come. Your vote matters and helps shape the direction of our urban development initiatives.
-              </Typography>
-
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mb: 2, lineHeight: 1.6 }}>
-                By voting, you acknowledge that you have read and understood the full proposal details and environmental impact assessment.
-              </Typography>
+              <Box sx={{ whiteSpace: 'pre-line' }}>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>
+                  {selectedProposal?.detailedContent || selectedProposal?.description}
+                </Typography>
+              </Box>
             </Box>
 
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', borderTop: '1px solid rgba(255,255,255,0.1)', pt: 3 }}>
               <Button
                 variant="contained"
                 color="success"
-                startIcon={<ThumbUpIcon />}
-                onClick={() => handleVote('yes')}
+                startIcon={isVoting ? <CircularProgress size={16} color="inherit" /> : <ThumbUpIcon />}
+                onClick={() => handleVote(true)}
+                disabled={isVoting || success}
                 sx={{ flex: 1, py: 1.5 }}
               >
-                Yes
+                {isVoting ? 'Voting...' : 'Yes'}
               </Button>
               <Button
                 variant="contained"
                 color="error"
-                startIcon={<ThumbDownIcon />}
-                onClick={() => handleVote('no')}
+                startIcon={isVoting ? <CircularProgress size={16} color="inherit" /> : <ThumbDownIcon />}
+                onClick={() => handleVote(false)}
+                disabled={isVoting || success}
                 sx={{ flex: 1, py: 1.5 }}
               >
-                No
+                {isVoting ? 'Voting...' : 'No'}
               </Button>
             </Box>
           </Box>
         </Modal>
+
+        {/* Success Snackbar */}
+        <Snackbar
+          open={showSuccessMessage}
+          autoHideDuration={4000}
+          onClose={() => setShowSuccessMessage(false)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert severity="success" onClose={() => setShowSuccessMessage(false)}>
+            Vote submitted successfully! Transaction confirmed on blockchain.
+          </Alert>
+        </Snackbar>
       </Container>
     </Box>
   );
